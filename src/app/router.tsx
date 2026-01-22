@@ -6,8 +6,10 @@ import { LoginPage } from '@/pages/login/LoginPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { PatientListPage } from '@/pages/patients/PatientListPage';
 import { PatientDetailPage } from '@/pages/patients/PatientDetailPage';
+import { PrescriptionsListPage } from '@/pages/prescriptions/PrescriptionsListPage';
 import { NewPrescriptionPage } from '@/pages/prescriptions/NewPrescriptionPage';
 import NotFound from '@/pages/NotFound';
+
 
 export function AppRouter() {
   return (
@@ -26,6 +28,7 @@ export function AppRouter() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/patients" element={<PatientListPage />} />
             <Route path="/patients/:id" element={<PatientDetailPage />} />
+            <Route path="/prescriptions" element={<PrescriptionsListPage />} />
             <Route path="/prescriptions/new" element={<NewPrescriptionPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
