@@ -1,179 +1,274 @@
 import { api } from './api';
 import type { Patient, PaginatedResponse, TimelineEvent, MindMapData } from '@/types';
 
-// Mock data for development - remove when backend is ready
-const MOCK_PATIENTS: Patient[] = [
-  {
-    id: '1',
-    uid: 'PAT-001',
-    firstName: 'John',
-    lastName: 'Smith',
-    dateOfBirth: '1985-03-15',
-    gender: 'male',
-    email: 'john.smith@email.com',
-    phone: '+1 555-0123',
-    bloodType: 'A+',
-    allergies: ['Penicillin'],
-    createdAt: '2024-01-15T10:00:00Z',
-    updatedAt: '2024-01-20T14:30:00Z',
-  },
-  {
-    id: '2',
-    uid: 'PAT-002',
-    firstName: 'Emily',
-    lastName: 'Davis',
-    dateOfBirth: '1990-07-22',
-    gender: 'female',
-    email: 'emily.davis@email.com',
-    phone: '+1 555-0456',
-    bloodType: 'O-',
-    allergies: [],
-    createdAt: '2024-01-10T09:00:00Z',
-    updatedAt: '2024-01-18T11:00:00Z',
-  },
-  {
-    id: '3',
-    uid: 'PAT-003',
-    firstName: 'Michael',
-    lastName: 'Johnson',
-    dateOfBirth: '1978-11-08',
-    gender: 'male',
-    email: 'michael.j@email.com',
-    phone: '+1 555-0789',
-    bloodType: 'B+',
-    allergies: ['Aspirin', 'Sulfa'],
-    createdAt: '2024-01-05T08:00:00Z',
-    updatedAt: '2024-01-22T16:00:00Z',
-  },
-];
+// Backend API response types (snake_case from backend)
+interface BackendPatient {
+  id: string;
+  patient_uid: string;
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  date_of_birth?: string;
+  gender?: 'male' | 'female' | 'other';
+  address?: string;
+  blood_type?: string;
+  allergies?: string[];
+  doctor_id: string;
+  created_at: string;
+  updated_at: string;
+}
 
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+interface BackendPatientHistory {
+  patient: BackendPatient;
+  prescriptions: any[];
+  aiInsights: any[];
+}
+
+// Helper function to convert backend patient to frontend format
+function mapBackendPatient(backendPatient: BackendPatient): Patient {
+  return {
+    id: backendPatient.id,
+    uid: backendPatient.patient_uid,
+    firstName: backendPatient.first_name,
+    lastName: backendPatient.last_name,
+    email: backendPatient.email,
+    phone: backendPatient.phone,
+    dateOfBirth: backendPatient.date_of_birth || '',
+    gender: backendPatient.gender || 'other',
+    address: backendPatient.address,
+    bloodType: backendPatient.blood_type,
+    allergies: backendPatient.allergies || [],
+    createdAt: backendPatient.created_at,
+    updatedAt: backendPatient.updated_at,
+  };
+}
+
+// Helper function to convert frontend patient to backend format
+function mapToBackendPatient(patient: Partial<Patient>) {
+  return {
+    firstName: patient.firstName,
+    lastName: patient.lastName,
+    email: patient.email,
+    phone: patient.phone,
+    dateOfBirth: patient.dateOfBirth,
+    gender: patient.gender,
+    address: patient.address,
+    bloodType: patient.bloodType,
+    allergies: patient.allergies,
+  };
+}
 
 export const patientService = {
-  // Get paginated patients
+  // Get all patients
   async getPatients(
     page = 1,
     pageSize = 10,
     search?: string
   ): Promise<PaginatedResponse<Patient>> {
-    // TODO: Replace with real API call when backend is ready
-    // return api.get<PaginatedResponse<Patient>>('/patients', { params: { page, pageSize, search } });
-    
-    await delay(500);
-    
-    let filtered = MOCK_PATIENTS;
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = MOCK_PATIENTS.filter(
-        (p) =>
-          p.firstName.toLowerCase().includes(searchLower) ||
-          p.lastName.toLowerCase().includes(searchLower) ||
-          p.uid.toLowerCase().includes(searchLower)
-      );
-    }
+    try {
+      const response: any = await api.get<any>('/patients');
+      // Handle if backend returns { data: [...] } or just [...]
+      const backendPatients: BackendPatient[] = Array.isArray(response) ? response : (response.data || []);
 
-    return {
-      data: filtered.slice((page - 1) * pageSize, page * pageSize),
-      total: filtered.length,
-      page,
-      pageSize,
-      totalPages: Math.ceil(filtered.length / pageSize),
-    };
+      // Apply search filter on frontend (backend doesn't support search yet)
+      let filtered = backendPatients;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = backendPatients.filter(
+          (p) =>
+            p.first_name.toLowerCase().includes(searchLower) ||
+            p.last_name.toLowerCase().includes(searchLower) ||
+            p.patient_uid.toLowerCase().includes(searchLower) ||
+            p.email?.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Map to frontend format
+      const patients = filtered.map(mapBackendPatient);
+
+      // Apply pagination on frontend
+      const paginatedData = patients.slice((page - 1) * pageSize, page * pageSize);
+
+      return {
+        data: paginatedData,
+        total: patients.length,
+        page,
+        pageSize,
+        totalPages: Math.ceil(patients.length / pageSize),
+      };
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+      throw new Error('Failed to fetch patients');
+    }
   },
 
   // Get single patient by ID
   async getPatient(id: string): Promise<Patient> {
-    // TODO: Replace with real API call
-    // return api.get<Patient>(`/patients/${id}`);
-    
-    await delay(300);
-    const patient = MOCK_PATIENTS.find((p) => p.id === id);
-    if (!patient) {
+    try {
+      const response: any = await api.get<any>(`/patients/${id}`);
+      const backendPatient = response.data || response;
+      return mapBackendPatient(backendPatient);
+    } catch (error) {
+      console.error('Failed to fetch patient:', error);
       throw new Error('Patient not found');
     }
-    return patient;
   },
 
   // Create new patient
   async createPatient(data: Omit<Patient, 'id' | 'uid' | 'createdAt' | 'updatedAt'>): Promise<Patient> {
-    // TODO: Replace with real API call
-    // return api.post<Patient>('/patients', data);
-    
-    await delay(800);
-    const newPatient: Patient = {
-      ...data,
-      id: String(Date.now()),
-      uid: `PAT-${String(MOCK_PATIENTS.length + 1).padStart(3, '0')}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    MOCK_PATIENTS.push(newPatient);
-    return newPatient;
+    try {
+      // Validate required fields
+      if (!data.firstName || !data.lastName) {
+        throw new Error('First name and last name are required');
+      }
+
+      const backendData = mapToBackendPatient(data);
+
+      console.log('Creating patient with data:', backendData); // Debug log
+
+      // The backend returns { success: true, data: { ...patient }, timestamp: ... }
+      const response: any = await api.post<any>('/patients', backendData);
+      console.log('Backend response for createPatient:', response); // Debug log
+
+      // Handle the nested data structure
+      const backendPatient = response.data || response;
+
+      return mapBackendPatient(backendPatient);
+    } catch (error: any) {
+      console.error('Failed to create patient:', error);
+
+      // Show actual backend error message if available
+      const errorMessage = error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
+        'Failed to create patient';
+
+      // If it's a validation error, show the details
+      if (error.response?.status === 400 && Array.isArray(error.response?.data?.message)) {
+        throw new Error(`Validation error: ${error.response.data.message.join(', ')}`);
+      }
+
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Get patient history
+  async getPatientHistory(patientId: string): Promise<BackendPatientHistory> {
+    try {
+      const response: any = await api.get<any>(`/patients/${patientId}/history`);
+      return response.data || response;
+    } catch (error) {
+      console.error('Failed to fetch patient history:', error);
+      throw new Error('Failed to fetch patient history');
+    }
   },
 
   // Get patient timeline
   async getPatientTimeline(patientId: string): Promise<TimelineEvent[]> {
-    // TODO: Replace with real API call
-    // return api.get<TimelineEvent[]>(`/patients/${patientId}/timeline`);
-    
-    await delay(400);
-    return [
-      {
-        id: '1',
-        type: 'visit',
-        title: 'Regular Checkup',
-        description: 'Annual physical examination',
-        date: '2024-01-20T10:00:00Z',
-      },
-      {
-        id: '2',
-        type: 'prescription',
-        title: 'Prescription Issued',
-        description: 'Lisinopril 10mg for hypertension',
-        date: '2024-01-20T10:30:00Z',
-      },
-      {
-        id: '3',
-        type: 'lab',
-        title: 'Lab Results',
-        description: 'Blood work completed - all values normal',
-        date: '2024-01-15T14:00:00Z',
-      },
-      {
-        id: '4',
-        type: 'alert',
-        title: 'Allergy Alert Added',
-        description: 'Patient reported penicillin allergy',
-        date: '2024-01-10T09:00:00Z',
-      },
-    ];
+    console.log('getPatientTimeline called for:', patientId);
+    try {
+      // Get patient history and convert to timeline events
+      const history = await this.getPatientHistory(patientId);
+
+      const timelineEvents: TimelineEvent[] = [];
+
+      // Add prescription events
+      history.prescriptions.forEach((prescription: any) => {
+        timelineEvents.push({
+          id: prescription.id,
+          type: 'prescription',
+          title: 'Prescription Issued',
+          description: prescription.diagnosis || 'Prescription created',
+          date: prescription.created_at,
+          metadata: prescription,
+        });
+      });
+
+      // Sort by date (newest first)
+      return timelineEvents.sort((a, b) =>
+        new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+    } catch (error) {
+      console.error('Failed to fetch patient timeline:', error);
+      // Return empty timeline instead of throwing
+      return [];
+    }
   },
 
   // Get patient mind map data
   async getPatientMindMap(patientId: string): Promise<MindMapData> {
-    // TODO: Replace with real API call
-    // return api.get<MindMapData>(`/patients/${patientId}/mindmap`);
-    
-    await delay(500);
-    const patient = MOCK_PATIENTS.find((p) => p.id === patientId);
-    
-    return {
-      patientId,
-      patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient',
-      conditions: [
-        { id: 'c1', name: 'Hypertension', severity: 'medium', diagnosedDate: '2023-06-15' },
-        { id: 'c2', name: 'Type 2 Diabetes', severity: 'high', diagnosedDate: '2022-01-10' },
-        { id: 'c3', name: 'Mild Asthma', severity: 'low', diagnosedDate: '2020-03-20' },
-      ],
-      medications: [
-        { id: 'm1', name: 'Lisinopril 10mg', dosage: 'Once daily', active: true },
-        { id: 'm2', name: 'Metformin 500mg', dosage: 'Twice daily', active: true },
-        { id: 'm3', name: 'Albuterol Inhaler', dosage: 'As needed', active: true },
-      ],
-      alerts: [
-        { id: 'a1', type: 'allergy', message: 'Penicillin Allergy', severity: 'high' },
-        { id: 'a2', type: 'interaction', message: 'Monitor blood sugar with current medications', severity: 'medium' },
-      ],
-    };
+    console.log('getPatientMindMap called for:', patientId); // Debug log
+    try {
+      const history = await this.getPatientHistory(patientId);
+      console.log('History received for mind map:', history); // Debug log
+      const patient = mapBackendPatient(history.patient);
+
+      // Extract conditions and medications from prescriptions
+      const conditions: MindMapData['conditions'] = [];
+      const medications: MindMapData['medications'] = [];
+      const alerts: MindMapData['alerts'] = [];
+
+      // Process prescriptions to extract unique diagnoses and medications
+      const diagnosisSet = new Set<string>();
+      const medicationMap = new Map<string, any>();
+
+      history.prescriptions.forEach((prescription: any) => {
+        // Add diagnosis as condition
+        if (prescription.diagnosis && !diagnosisSet.has(prescription.diagnosis)) {
+          diagnosisSet.add(prescription.diagnosis);
+          conditions.push({
+            id: `c-${prescription.id}`,
+            name: prescription.diagnosis,
+            severity: 'medium',
+            diagnosedDate: prescription.prescribed_date,
+          });
+        }
+
+        // Add medications
+        if (prescription.medications && Array.isArray(prescription.medications)) {
+          prescription.medications.forEach((med: any) => {
+            if (!medicationMap.has(med.name)) {
+              medicationMap.set(med.name, {
+                id: `m-${prescription.id}-${med.name}`,
+                name: med.name,
+                dosage: med.dosage || '',
+                active: true,
+              });
+            }
+          });
+        }
+      });
+
+      // Add patient allergies as alerts
+      if (patient.allergies && patient.allergies.length > 0) {
+        patient.allergies.forEach((allergy, index) => {
+          alerts.push({
+            id: `a-${index}`,
+            type: 'allergy',
+            message: `${allergy} Allergy`,
+            severity: 'high',
+          });
+        });
+      }
+
+      return {
+        patientId,
+        patientName: `${patient.firstName} ${patient.lastName}`,
+        conditions,
+        medications: Array.from(medicationMap.values()),
+        alerts,
+      };
+    } catch (error) {
+      console.error('Failed to fetch patient mind map:', error);
+      // Return minimal data instead of throwing
+      return {
+        patientId,
+        patientName: 'Unknown Patient',
+        conditions: [],
+        medications: [],
+        alerts: [],
+      };
+    }
   },
 };

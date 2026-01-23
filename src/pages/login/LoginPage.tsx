@@ -50,7 +50,7 @@ export function LoginPage() {
     setIsLoading(true);
     try {
       await authService.loginWithEmail(data.email, data.password);
-      toast({ title: 'Welcome back!', description: 'Successfully logged in.' });
+      toast({ title: 'Welcome back!', description: 'Successfully logged in.', variant: 'success' });
       navigate(from, { replace: true });
     } catch (error) {
       toast({
@@ -69,7 +69,7 @@ export function LoginPage() {
       await authService.sendMagicLink(data.email);
       setMagicLinkEmail(data.email);
       setMagicLinkSent(true);
-      toast({ title: 'Check your email', description: 'We sent you a verification code.' });
+      toast({ title: 'Check your email', description: 'We sent you a verification code.', variant: 'success' });
     } catch (error) {
       toast({
         title: 'Failed to send code',
@@ -83,11 +83,11 @@ export function LoginPage() {
 
   const handleOTPVerify = async () => {
     if (otpValue.length !== 6) return;
-    
+
     setIsLoading(true);
     try {
       await authService.verifyOTP(magicLinkEmail, otpValue);
-      toast({ title: 'Welcome!', description: 'Successfully verified.' });
+      toast({ title: 'Welcome!', description: 'Successfully verified.', variant: 'success' });
       navigate(from, { replace: true });
     } catch (error) {
       toast({

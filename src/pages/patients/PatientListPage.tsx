@@ -14,7 +14,7 @@ export function PatientListPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
-  
+
   const page = Number(searchParams.get('page')) || 1;
   const search = searchParams.get('search') || '';
 

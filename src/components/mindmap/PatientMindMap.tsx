@@ -20,9 +20,12 @@ interface PatientMindMapProps {
 }
 
 export function PatientMindMap({ patientId }: PatientMindMapProps) {
+  console.log('Rendering PatientMindMap for:', patientId);
   const { data, isLoading } = useQuery({
     queryKey: ['patient', patientId, 'mindmap'],
     queryFn: () => patientService.getPatientMindMap(patientId),
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   const { nodes, edges } = useMemo(() => {

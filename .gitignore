@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files (ignore real secrets)
+.env
+.env.*
+.env.example
+
+# Ignore all Markdown files (incl. README and docs)
+*.md

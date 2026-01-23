@@ -27,9 +27,12 @@ const eventColors: Record<TimelineEvent['type'], string> = {
 };
 
 export function PatientTimeline({ patientId }: PatientTimelineProps) {
+  console.log('Rendering PatientTimeline for:', patientId);
   const { data: events, isLoading } = useQuery({
     queryKey: ['patient', patientId, 'timeline'],
     queryFn: () => patientService.getPatientTimeline(patientId),
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
   if (isLoading) {

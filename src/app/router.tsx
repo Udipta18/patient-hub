@@ -5,6 +5,7 @@ import { AppLayout } from '@/components/common/AppLayout';
 import { LoginPage } from '@/pages/login/LoginPage';
 import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { PatientListPage } from '@/pages/patients/PatientListPage';
+import { NewPatientPage } from '@/pages/patients/NewPatientPage';
 import { PatientDetailPage } from '@/pages/patients/PatientDetailPage';
 import { PrescriptionsListPage } from '@/pages/prescriptions/PrescriptionsListPage';
 import { NewPrescriptionPage } from '@/pages/prescriptions/NewPrescriptionPage';
@@ -27,6 +28,7 @@ export function AppRouter() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/patients" element={<PatientListPage />} />
+            <Route path="/patients/new" element={<NewPatientPage />} />
             <Route path="/patients/:id" element={<PatientDetailPage />} />
             <Route path="/prescriptions" element={<PrescriptionsListPage />} />
             <Route path="/prescriptions/new" element={<NewPrescriptionPage />} />
