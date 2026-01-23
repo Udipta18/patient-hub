@@ -54,11 +54,19 @@ export interface MindMapCondition {
   diagnosedDate?: string;
 }
 
+export interface MindMapEncounter {
+  id: string;
+  conditionId: string;
+  date: string;
+}
+
 export interface MindMapMedication {
   id: string;
+  encounterId?: string; // Links to parent encounter
   name: string;
   dosage: string;
   active: boolean;
+  prescribedDate: string;
 }
 
 export interface MindMapAlert {
@@ -72,6 +80,7 @@ export interface MindMapData {
   patientId: string;
   patientName: string;
   conditions: MindMapCondition[];
+  encounters: MindMapEncounter[];
   medications: MindMapMedication[];
   alerts: MindMapAlert[];
 }

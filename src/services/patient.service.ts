@@ -206,36 +206,48 @@ export const patientService = {
 
       // Extract conditions and medications from prescriptions
       const conditions: MindMapData['conditions'] = [];
+      const encounters: MindMapData['encounters'] = [];
       const medications: MindMapData['medications'] = [];
       const alerts: MindMapData['alerts'] = [];
 
-      // Process prescriptions to extract unique diagnoses and medications
-      const diagnosisSet = new Set<string>();
-      const medicationMap = new Map<string, any>();
+      // Process prescriptions with aggregation logic
+      const diagnosisMap = new Map<string, string>(); // Name -> ConditionId
 
       history.prescriptions.forEach((prescription: any) => {
-        // Add diagnosis as condition
-        if (prescription.diagnosis && !diagnosisSet.has(prescription.diagnosis)) {
-          diagnosisSet.add(prescription.diagnosis);
+        const diagName = prescription.diagnosis || 'Unknown Condition';
+
+        // 1. Get or Create Condition Node (Level 2)
+        let conditionId = diagnosisMap.get(diagName);
+        if (!conditionId) {
+          conditionId = `c-${diagName.toLowerCase().replace(/\s+/g, '-')}`;
+          diagnosisMap.set(diagName, conditionId);
           conditions.push({
-            id: `c-${prescription.id}`,
-            name: prescription.diagnosis,
+            id: conditionId,
+            name: diagName,
             severity: 'medium',
-            diagnosedDate: prescription.prescribed_date,
+            diagnosedDate: prescription.prescribed_date, // Uses first seen date
           });
         }
 
-        // Add medications
+        // 2. Create Encounter Node (Level 3 - Date)
+        const encounterId = `e-${prescription.id}`;
+        encounters.push({
+          id: encounterId,
+          conditionId: conditionId!,
+          date: prescription.prescribed_date || prescription.created_at || 'Unknown Date',
+        });
+
+        // 3. Create Medication Nodes (Level 4)
         if (prescription.medications && Array.isArray(prescription.medications)) {
-          prescription.medications.forEach((med: any) => {
-            if (!medicationMap.has(med.name)) {
-              medicationMap.set(med.name, {
-                id: `m-${prescription.id}-${med.name}`,
-                name: med.name,
-                dosage: med.dosage || '',
-                active: true,
-              });
-            }
+          prescription.medications.forEach((med: any, index: number) => {
+            medications.push({
+              id: `m-${prescription.id}-${index}`,
+              encounterId: encounterId, // Link to Encounter (Date)
+              name: med.name,
+              dosage: med.dosage || '',
+              active: true,
+              prescribedDate: prescription.prescribed_date || prescription.created_at || 'Unknown Date',
+            });
           });
         }
       });
@@ -256,7 +268,8 @@ export const patientService = {
         patientId,
         patientName: `${patient.firstName} ${patient.lastName}`,
         conditions,
-        medications: Array.from(medicationMap.values()),
+        encounters,
+        medications,
         alerts,
       };
     } catch (error) {
@@ -266,6 +279,7 @@ export const patientService = {
         patientId,
         patientName: 'Unknown Patient',
         conditions: [],
+        encounters: [],
         medications: [],
         alerts: [],
       };

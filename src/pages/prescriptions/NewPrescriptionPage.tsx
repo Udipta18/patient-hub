@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useToast } from '@/hooks/use-toast';
 import { prescriptionService } from '@/services/prescription.service';
 import { patientService } from '@/services/patient.service';
+import { PrescriptionPreview } from '@/components/prescriptions/PrescriptionPreview';
 
 const medicationSchema = z.object({
   name: z.string().min(1, 'Medication name is required'),
@@ -36,6 +37,20 @@ export function NewPrescriptionPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const patientId = searchParams.get('patientId');
+
+  // Preview State
+  const [showPreview, setShowPreview] = useState(false);
+  const [pendingData, setPendingData] = useState<PrescriptionForm | null>(null);
+
+  // New Patient State
+  const [newPatientData, setNewPatientData] = useState({
+    firstName: '',
+    lastName: '',
+    dateOfBirth: '',
+    gender: 'male' as 'male' | 'female' | 'other',
+    phone: '',
+    email: '',
+  });
 
   const { data: patient } = useQuery({
     queryKey: ['patient', patientId],
@@ -79,26 +94,6 @@ export function NewPrescriptionPage() {
     },
   });
 
-  const onSubmit = (data: PrescriptionForm) => {
-    if (!patientId) {
-      toast({ title: 'Error', description: 'Patient ID is required', variant: 'destructive' });
-      return;
-    }
-    createMutation.mutate(data);
-  };
-
-  // State for new patient mode
-  const [isCreatingPatient, setIsCreatingPatient] = useState(!patientId);
-  const [newPatientData, setNewPatientData] = useState({
-    firstName: '',
-    lastName: '',
-    dateOfBirth: '',
-    gender: 'male' as 'male' | 'female' | 'other',
-    phone: '',
-    email: '',
-  });
-
-  // Create patient and then prescription mutation
   const createPatientAndPrescriptionMutation = useMutation({
     mutationFn: async (prescriptionData: PrescriptionForm) => {
       // First create the patient
@@ -136,19 +131,64 @@ export function NewPrescriptionPage() {
     },
   });
 
-  const onSubmitNewPatient = (data: PrescriptionForm) => {
-    // Validate patient data
-    if (!newPatientData.firstName || !newPatientData.lastName || !newPatientData.dateOfBirth) {
-      toast({ title: 'Error', description: 'Please fill in all required patient fields', variant: 'destructive' });
-      return;
+  const onSubmit = (data: PrescriptionForm) => {
+    if (patientId) {
+      setPendingData(data);
+      setShowPreview(true);
+    } else {
+      // New Patient Validation
+      if (!newPatientData.firstName || !newPatientData.lastName || !newPatientData.dateOfBirth) {
+        toast({ title: 'Error', description: 'Please fill in all required patient fields', variant: 'destructive' });
+        return;
+      }
+      setPendingData(data);
+      setShowPreview(true);
     }
-    createPatientAndPrescriptionMutation.mutate(data);
   };
 
+  const handleConfirm = () => {
+    if (!pendingData) return;
+
+    if (patientId) {
+      createMutation.mutate(pendingData);
+    } else {
+      createPatientAndPrescriptionMutation.mutate(pendingData);
+    }
+  };
+
+  // Render Preview
+  if (showPreview && pendingData) {
+    const previewPatient = patientId && patient ? {
+      firstName: patient.firstName,
+      lastName: patient.lastName,
+      dateOfBirth: patient.dateOfBirth,
+      gender: patient.gender,
+      uid: patient.uid,
+      address: patient.address
+    } : {
+      firstName: newPatientData.firstName,
+      lastName: newPatientData.lastName,
+      dateOfBirth: newPatientData.dateOfBirth,
+      gender: newPatientData.gender,
+      uid: 'NEW PATIENT',
+      address: ''
+    };
+
+    return (
+      <PrescriptionPreview
+        patient={previewPatient}
+        data={pendingData}
+        onEdit={() => setShowPreview(false)}
+        onConfirm={handleConfirm}
+        isSaving={createMutation.isPending || createPatientAndPrescriptionMutation.isPending}
+      />
+    );
+  }
+
+  // Render New Patient Form
   if (!patientId) {
     return (
       <div className="space-y-6 max-w-3xl mx-auto">
-        {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/patients')}>
             <ArrowLeft className="h-5 w-5" />
@@ -160,7 +200,7 @@ export function NewPrescriptionPage() {
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmitNewPatient)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Patient Details */}
             <Card>
               <CardHeader>
@@ -303,7 +343,6 @@ export function NewPrescriptionPage() {
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
                         name={`medications.${index}.dosage`}
@@ -317,7 +356,6 @@ export function NewPrescriptionPage() {
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
                         name={`medications.${index}.frequency`}
@@ -331,7 +369,6 @@ export function NewPrescriptionPage() {
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
                         name={`medications.${index}.duration`}
@@ -345,7 +382,6 @@ export function NewPrescriptionPage() {
                           </FormItem>
                         )}
                       />
-
                       <FormField
                         control={form.control}
                         name={`medications.${index}.instructions`}
@@ -396,9 +432,8 @@ export function NewPrescriptionPage() {
               <Button type="button" variant="outline" onClick={() => navigate('/patients')}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createPatientAndPrescriptionMutation.isPending}>
-                {createPatientAndPrescriptionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Patient & Prescription
+              <Button type="submit">
+                Preview Prescription
               </Button>
             </div>
           </form>
@@ -407,11 +442,9 @@ export function NewPrescriptionPage() {
     );
   }
 
-
-
+  // Render Existing Patient Form
   return (
     <div className="space-y-6 max-w-3xl mx-auto">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-5 w-5" />
@@ -428,7 +461,6 @@ export function NewPrescriptionPage() {
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Diagnosis */}
           <Card>
             <CardHeader>
               <CardTitle>Diagnosis</CardTitle>
@@ -451,7 +483,6 @@ export function NewPrescriptionPage() {
             </CardContent>
           </Card>
 
-          {/* Medications */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -499,7 +530,6 @@ export function NewPrescriptionPage() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name={`medications.${index}.dosage`}
@@ -513,7 +543,6 @@ export function NewPrescriptionPage() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name={`medications.${index}.frequency`}
@@ -527,7 +556,6 @@ export function NewPrescriptionPage() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name={`medications.${index}.duration`}
@@ -541,7 +569,6 @@ export function NewPrescriptionPage() {
                         </FormItem>
                       )}
                     />
-
                     <FormField
                       control={form.control}
                       name={`medications.${index}.instructions`}
@@ -561,7 +588,6 @@ export function NewPrescriptionPage() {
             </CardContent>
           </Card>
 
-          {/* Notes */}
           <Card>
             <CardHeader>
               <CardTitle>Additional Notes</CardTitle>
@@ -587,14 +613,12 @@ export function NewPrescriptionPage() {
             </CardContent>
           </Card>
 
-          {/* Submit */}
           <div className="flex justify-end gap-3">
             <Button type="button" variant="outline" onClick={() => navigate(-1)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create Prescription
+            <Button type="submit">
+              Preview Prescription
             </Button>
           </div>
         </form>
