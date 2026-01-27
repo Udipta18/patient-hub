@@ -1,17 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Loader2, Stethoscope, Pill, FileText, CheckCircle2, User, ChevronDown, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Plus, Loader2, Stethoscope, Pill, FileText, CheckCircle2, User, ChevronDown, CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -19,6 +18,10 @@ import { useToast } from '@/hooks/use-toast';
 import { prescriptionService } from '@/services/prescription.service';
 import { patientService } from '@/services/patient.service';
 import { PrescriptionPreview } from '@/components/prescriptions/PrescriptionPreview';
+import { MedicineRow, AutofillHint, MedicineRowSkeleton } from '@/components/prescriptions/MedicineRow';
+import { DiagnosisAutocomplete } from '@/components/prescriptions/DiagnosisAutocomplete';
+import { useDiagnosisMedicines } from '@/hooks/use-diagnosis-medicines';
+import type { Diagnosis } from '@/types/diagnosis';
 
 const medicationSchema = z.object({
   name: z.string().min(1, 'Medication name is required'),
@@ -72,6 +75,20 @@ export function NewPrescriptionPage() {
       notes: '',
     },
   });
+
+  // Selected diagnosis state - stores the full diagnosis object with ID
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState<Diagnosis | null>(null);
+
+  // Handle diagnosis selection from autocomplete
+  const handleDiagnosisSelect = useCallback((diagnosis: Diagnosis) => {
+    setSelectedDiagnosis(diagnosis);
+  }, []);
+
+  // Fetch medicines for the selected diagnosis (using UUID, not text)
+  const {
+    data: diagnosisMedicines = [],
+    isLoading: isLoadingMedicines
+  } = useDiagnosisMedicines(selectedDiagnosis?.id);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -341,34 +358,11 @@ export function NewPrescriptionPage() {
             </div>
 
             {/* Diagnosis */}
-            <div className="glass-card rounded-xl p-6 relative overflow-hidden group">
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-accent opacity-50 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center gap-3 mb-6">
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                  <Stethoscope className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold">Diagnosis</h3>
-                  <p className="text-sm text-muted-foreground">Primary medical diagnosis</p>
-                </div>
-              </div>
-              <FormField
-                control={form.control}
-                name="diagnosis"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Input
-                        placeholder="e.g., Upper Respiratory Infection"
-                        className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium placeholder:font-normal"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <DiagnosisAutocomplete
+              form={form}
+              onDiagnosisSelect={handleDiagnosisSelect}
+              selectedDiagnosis={selectedDiagnosis}
+            />
 
             {/* Medications */}
             <div className="space-y-4">
@@ -394,100 +388,26 @@ export function NewPrescriptionPage() {
                 </Button>
               </div>
 
-              <div className="space-y-4">
-                {fields.map((field, index) => (
-                  <div key={field.id} className="glass-card p-6 rounded-xl relative group animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
-                    {fields.length > 1 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="absolute right-4 top-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    ) : null}
+              {/* Autofill Hint - shown when medicines are available */}
+              <AutofillHint isVisible={diagnosisMedicines.length > 0} />
 
-                    <div className="grid gap-6 sm:grid-cols-12">
-                      <div className="sm:col-span-5">
-                        <FormField
-                          control={form.control}
-                          name={`medications.${index}.name`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Medication Name</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., Amoxicillin" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <FormField
-                          control={form.control}
-                          name={`medications.${index}.dosage`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Dosage</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., 500mg" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="sm:col-span-4">
-                        <FormField
-                          control={form.control}
-                          name={`medications.${index}.frequency`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Frequency</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., TID (3x daily)" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="sm:col-span-4">
-                        <FormField
-                          control={form.control}
-                          name={`medications.${index}.duration`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Duration</FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., 7 days" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <div className="sm:col-span-8">
-                        <FormField
-                          control={form.control}
-                          name={`medications.${index}.instructions`}
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Instructions <span className="text-muted-foreground/50 lowercase font-normal">(optional)</span></FormLabel>
-                              <FormControl>
-                                <Input placeholder="e.g., Take with food" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-4">
+                {isLoadingMedicines && fields.length === 1 ? (
+                  <MedicineRowSkeleton />
+                ) : (
+                  fields.map((field, index) => (
+                    <MedicineRow
+                      key={field.id}
+                      form={form}
+                      field={field}
+                      index={index}
+                      medicines={diagnosisMedicines}
+                      isLoadingMedicines={isLoadingMedicines}
+                      canRemove={fields.length > 1}
+                      onRemove={() => remove(index)}
+                    />
+                  ))
+                )}
               </div>
             </div>
 
@@ -562,35 +482,11 @@ export function NewPrescriptionPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
 
           {/* Diagnosis Section */}
-          <div className="glass-card rounded-xl p-6 relative overflow-hidden group">
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-accent opacity-50 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center gap-3 mb-6">
-              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                <Stethoscope className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">Diagnosis</h3>
-                <p className="text-sm text-muted-foreground">Primary medical diagnosis</p>
-              </div>
-            </div>
-
-            <FormField
-              control={form.control}
-              name="diagnosis"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., Acute Bronchitis"
-                      className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium placeholder:font-normal"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+          <DiagnosisAutocomplete
+            form={form}
+            onDiagnosisSelect={handleDiagnosisSelect}
+            selectedDiagnosis={selectedDiagnosis}
+          />
 
           {/* Medications Section */}
           <div className="space-y-4">
@@ -616,109 +512,26 @@ export function NewPrescriptionPage() {
               </Button>
             </div>
 
+            {/* Autofill Hint - shown when medicines are available */}
+            <AutofillHint isVisible={diagnosisMedicines.length > 0} />
+
             <div className="space-y-4">
-              {fields.map((field, index) => (
-                <div key={field.id} className="glass-card p-6 rounded-xl relative group animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
-                  {fields.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-4 top-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                      onClick={() => remove(index)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  ) : null}
-
-                  <div className="grid gap-6 sm:grid-cols-12">
-                    {/* Medication Name - Wider */}
-                    <div className="sm:col-span-5">
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.name`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Medication Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Amoxicillin" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Dosage */}
-                    <div className="sm:col-span-3">
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.dosage`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Dosage</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 500mg" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Frequency */}
-                    <div className="sm:col-span-4">
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.frequency`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Frequency</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., TID (3x daily)" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Duration */}
-                    <div className="sm:col-span-4">
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.duration`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Duration</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 7 days" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Instructions */}
-                    <div className="sm:col-span-8">
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.instructions`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Instructions <span className="text-muted-foreground/50 lowercase font-normal">(optional)</span></FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Take with food" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {isLoadingMedicines && fields.length === 1 ? (
+                <MedicineRowSkeleton />
+              ) : (
+                fields.map((field, index) => (
+                  <MedicineRow
+                    key={field.id}
+                    form={form}
+                    field={field}
+                    index={index}
+                    medicines={diagnosisMedicines}
+                    isLoadingMedicines={isLoadingMedicines}
+                    canRemove={fields.length > 1}
+                    onRemove={() => remove(index)}
+                  />
+                ))
+              )}
             </div>
           </div>
 

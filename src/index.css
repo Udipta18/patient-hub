@@ -338,6 +338,21 @@
     }
   }
 
+  /* Fade In */
+  .animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
   /* Stagger delay utilities */
   .delay-100 {
     animation-delay: 100ms;
