@@ -87,11 +87,9 @@ export function PrescriptionPreview({ patient, data, onEdit, onConfirm, isSaving
             .no-print {
               display: none !important;
             }
-            #root {
-              display: none;
-            }
+            /* Do NOT hide #root as it contains the content */
             .prescription-content, .prescription-content * {
-              visibility: visible;
+              visibility: visible !important;
             }
             .prescription-content {
               position: absolute;
@@ -100,7 +98,10 @@ export function PrescriptionPreview({ patient, data, onEdit, onConfirm, isSaving
               width: 100%;
               margin: 0;
               padding: 20px;
-              background: white;
+              background: white !important;
+              z-index: 99999;
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
             }
             @page {
               size: auto;

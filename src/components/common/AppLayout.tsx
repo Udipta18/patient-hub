@@ -18,6 +18,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { useUIStore } from '@/store/ui.store';
 import { authService } from '@/services/auth.service';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from '@/components/common/ThemeToggle';
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -73,11 +74,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       </ScrollArea>
 
       {/* User section */}
-      <div className="border-t p-4">
+      <div className="border-t p-4 space-y-4">
+        <div className={cn("flex items-center", sidebarCollapsed ? "justify-center" : "justify-between")}>
+          {!sidebarCollapsed && <span className="text-sm font-medium text-muted-foreground">Theme</span>}
+          <ThemeToggle />
+        </div>
+
         {!sidebarCollapsed && user && (
-          <div className="mb-3">
-            <p className="text-sm font-medium">{user.name}</p>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
+          <div>
+            <p className="text-sm font-medium truncate">{user.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{user.email}</p>
           </div>
         )}
         <Button

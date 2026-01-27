@@ -3,7 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon } from 'lucide-react';
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -152,15 +160,61 @@ export function NewPatientPage() {
                                 <FormField
                                     control={form.control}
                                     name="dateOfBirth"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Date of Birth</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
+                                    render={({ field }) => {
+                                        // Safely parse the date string to a Date object
+                                        const dateValue = field.value ? new Date(field.value) : undefined;
+                                        const isValidDate = dateValue && !isNaN(dateValue.getTime());
+
+                                        return (
+                                            <FormItem className="flex flex-col">
+                                                <FormLabel>Date of Birth</FormLabel>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                variant={"outline"}
+                                                                className={cn(
+                                                                    "w-full pl-3 text-left font-normal h-10 rounded-xl border-input hover:bg-background/50",
+                                                                    !isValidDate && "text-muted-foreground"
+                                                                )}
+                                                            >
+                                                                {isValidDate ? (
+                                                                    format(dateValue!, "PPP")
+                                                                ) : (
+                                                                    <span>Pick a date</span>
+                                                                )}
+                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0 rounded-xl shadow-xl border-border/50" align="start">
+                                                        <Calendar
+                                                            mode="single"
+                                                            selected={isValidDate ? dateValue : undefined}
+                                                            onSelect={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                                                            disabled={(date) =>
+                                                                date > new Date() || date < new Date("1900-01-01")
+                                                            }
+                                                            initialFocus
+                                                            className="p-3"
+                                                            captionLayout="dropdown"
+                                                            fromYear={1900}
+                                                            toYear={new Date().getFullYear()}
+                                                            showOutsideDays={false}
+                                                            classNames={{
+                                                                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                                                                caption_dropdowns: "flex justify-center gap-2",
+                                                                dropdown: "bg-background text-foreground border border-input rounded-md px-2 py-1 text-sm font-medium cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                                                                vhidden: "hidden",
+                                                                caption_label: "hidden",
+                                                            }}
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                                <FormMessage />
+                                            </FormItem>
+                                        );
+                                    }}
                                 />
                                 <FormField
                                     control={form.control}
