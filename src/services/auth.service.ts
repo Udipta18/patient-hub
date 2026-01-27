@@ -65,9 +65,10 @@ export const authService = {
       useAuthStore.getState().setUser(user);
 
       return user;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Supabase login error:', error);
-      throw new Error(error.message || 'Login failed');
+      throw new Error(err.message || 'Login failed');
     }
   },
 
@@ -121,9 +122,10 @@ export const authService = {
       useAuthStore.getState().setUser(user);
 
       return user;
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Supabase signup error:', error);
-      throw new Error(error.message || 'Sign up failed');
+      throw new Error(err.message || 'Sign up failed');
     }
   },
 
@@ -289,9 +291,10 @@ export const authService = {
       if (error) {
         throw new Error(error.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Password reset error:', error);
-      throw new Error(error.message || 'Failed to send password reset email');
+      throw new Error(err.message || 'Failed to send password reset email');
     }
   },
 
@@ -313,9 +316,10 @@ export const authService = {
       if (error) {
         throw new Error(error.message);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const err = error as { message?: string };
       console.error('Password update error:', error);
-      throw new Error(error.message || 'Failed to update password');
+      throw new Error(err.message || 'Failed to update password');
     }
   },
 };

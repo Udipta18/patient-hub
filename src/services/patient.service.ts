@@ -1,7 +1,10 @@
 import { api } from './api';
 import type { Patient, PaginatedResponse, TimelineEvent, MindMapData } from '@/types';
 
-// Backend API response types (snake_case from backend)
+// ============================================
+// Backend API Response Types (snake_case)
+// ============================================
+
 interface BackendPatient {
   id: string;
   patient_uid: string;
@@ -19,11 +22,51 @@ interface BackendPatient {
   updated_at: string;
 }
 
+interface BackendMedication {
+  id?: string;
+  name: string;
+  dosage?: string;
+  frequency?: string;
+  duration?: string;
+  instructions?: string;
+}
+
+interface BackendPrescription {
+  id: string;
+  patient_id: string;
+  doctor_id: string;
+  diagnosis?: string;
+  medications?: BackendMedication[];
+  notes?: string;
+  prescribed_date?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+interface BackendAiInsight {
+  id: string;
+  type: string;
+  content: string;
+  created_at: string;
+}
+
 interface BackendPatientHistory {
   patient: BackendPatient;
-  prescriptions: any[];
-  aiInsights: any[];
+  prescriptions: BackendPrescription[];
+  aiInsights: BackendAiInsight[];
 }
+
+// Backend API response wrappers
+interface ApiResponse<T> {
+  success?: boolean;
+  data: T;
+  message?: string;
+  timestamp?: string;
+}
+
+type PatientListResponse = BackendPatient[] | ApiResponse<BackendPatient[]>;
+type PatientResponse = BackendPatient | ApiResponse<BackendPatient>;
+type PatientHistoryResponse = BackendPatientHistory | ApiResponse<BackendPatientHistory>;
 
 // Helper function to convert backend patient to frontend format
 function mapBackendPatient(backendPatient: BackendPatient): Patient {
@@ -67,9 +110,11 @@ export const patientService = {
     search?: string
   ): Promise<PaginatedResponse<Patient>> {
     try {
-      const response: any = await api.get<any>('/patients');
+      const response = await api.get<PatientListResponse>('/patients');
       // Handle if backend returns { data: [...] } or just [...]
-      const backendPatients: BackendPatient[] = Array.isArray(response) ? response : (response.data || []);
+      const backendPatients: BackendPatient[] = Array.isArray(response)
+        ? response
+        : ((response as ApiResponse<BackendPatient[]>).data || []);
 
       // Apply search filter on frontend (backend doesn't support search yet)
       let filtered = backendPatients;
@@ -106,8 +151,10 @@ export const patientService = {
   // Get single patient by ID
   async getPatient(id: string): Promise<Patient> {
     try {
-      const response: any = await api.get<any>(`/patients/${id}`);
-      const backendPatient = response.data || response;
+      const response = await api.get<PatientResponse>(`/patients/${id}`);
+      const backendPatient = 'data' in response
+        ? (response as ApiResponse<BackendPatient>).data
+        : response as BackendPatient;
       return mapBackendPatient(backendPatient);
     } catch (error) {
       console.error('Failed to fetch patient:', error);
@@ -125,28 +172,26 @@ export const patientService = {
 
       const backendData = mapToBackendPatient(data);
 
-      console.log('Creating patient with data:', backendData); // Debug log
-
       // The backend returns { success: true, data: { ...patient }, timestamp: ... }
-      const response: any = await api.post<any>('/patients', backendData);
-      console.log('Backend response for createPatient:', response); // Debug log
+      const response = await api.post<ApiResponse<BackendPatient>>('/patients', backendData);
 
       // Handle the nested data structure
-      const backendPatient = response.data || response;
+      const backendPatient = response.data;
 
       return mapBackendPatient(backendPatient);
-    } catch (error: any) {
-      console.error('Failed to create patient:', error);
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { status?: number; data?: { message?: string | string[]; error?: string } }; message?: string };
 
       // Show actual backend error message if available
-      const errorMessage = error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.message ||
+      const errorMessage = axiosError.response?.data?.message && typeof axiosError.response.data.message === 'string'
+        ? axiosError.response.data.message
+        : axiosError.response?.data?.error ||
+        axiosError.message ||
         'Failed to create patient';
 
       // If it's a validation error, show the details
-      if (error.response?.status === 400 && Array.isArray(error.response?.data?.message)) {
-        throw new Error(`Validation error: ${error.response.data.message.join(', ')}`);
+      if (axiosError.response?.status === 400 && Array.isArray(axiosError.response?.data?.message)) {
+        throw new Error(`Validation error: ${axiosError.response.data.message.join(', ')}`);
       }
 
       throw new Error(errorMessage);
@@ -156,8 +201,10 @@ export const patientService = {
   // Get patient history
   async getPatientHistory(patientId: string): Promise<BackendPatientHistory> {
     try {
-      const response: any = await api.get<any>(`/patients/${patientId}/history`);
-      return response.data || response;
+      const response = await api.get<PatientHistoryResponse>(`/patients/${patientId}/history`);
+      return 'data' in response
+        ? (response as ApiResponse<BackendPatientHistory>).data
+        : response as BackendPatientHistory;
     } catch (error) {
       console.error('Failed to fetch patient history:', error);
       throw new Error('Failed to fetch patient history');
@@ -166,7 +213,6 @@ export const patientService = {
 
   // Get patient timeline
   async getPatientTimeline(patientId: string): Promise<TimelineEvent[]> {
-    console.log('getPatientTimeline called for:', patientId);
     try {
       // Get patient history and convert to timeline events
       const history = await this.getPatientHistory(patientId);
@@ -174,14 +220,14 @@ export const patientService = {
       const timelineEvents: TimelineEvent[] = [];
 
       // Add prescription events
-      history.prescriptions.forEach((prescription: any) => {
+      history.prescriptions.forEach((prescription) => {
         timelineEvents.push({
           id: prescription.id,
           type: 'prescription',
           title: 'Prescription Issued',
           description: prescription.diagnosis || 'Prescription created',
           date: prescription.created_at,
-          metadata: prescription,
+          metadata: prescription as Record<string, unknown>,
         });
       });
 
@@ -198,10 +244,8 @@ export const patientService = {
 
   // Get patient mind map data
   async getPatientMindMap(patientId: string): Promise<MindMapData> {
-    console.log('getPatientMindMap called for:', patientId); // Debug log
     try {
       const history = await this.getPatientHistory(patientId);
-      console.log('History received for mind map:', history); // Debug log
       const patient = mapBackendPatient(history.patient);
 
       // Extract conditions and medications from prescriptions
@@ -213,7 +257,7 @@ export const patientService = {
       // Process prescriptions with aggregation logic
       const diagnosisMap = new Map<string, string>(); // Name -> ConditionId
 
-      history.prescriptions.forEach((prescription: any) => {
+      history.prescriptions.forEach((prescription) => {
         const diagName = prescription.diagnosis || 'Unknown Condition';
 
         // 1. Get or Create Condition Node (Level 2)
@@ -225,7 +269,7 @@ export const patientService = {
             id: conditionId,
             name: diagName,
             severity: 'medium',
-            diagnosedDate: prescription.prescribed_date, // Uses first seen date
+            diagnosedDate: prescription.prescribed_date,
           });
         }
 
@@ -239,10 +283,10 @@ export const patientService = {
 
         // 3. Create Medication Nodes (Level 4)
         if (prescription.medications && Array.isArray(prescription.medications)) {
-          prescription.medications.forEach((med: any, index: number) => {
+          prescription.medications.forEach((med, index) => {
             medications.push({
               id: `m-${prescription.id}-${index}`,
-              encounterId: encounterId, // Link to Encounter (Date)
+              encounterId: encounterId,
               name: med.name,
               dosage: med.dosage || '',
               active: true,

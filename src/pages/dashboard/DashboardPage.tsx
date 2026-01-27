@@ -97,14 +97,14 @@ export function DashboardPage() {
             <Button
               onClick={() => navigate('/prescriptions/new')}
               variant="secondary"
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20 backdrop-blur-sm"
+              className="bg-white/10 border-2 border-white text-white hover:bg-white/20 backdrop-blur-sm shadow-md"
             >
               <FileText className="mr-2 h-4 w-4" />
               New Prescription
             </Button>
             <Button
               onClick={() => navigate('/patients/new')}
-              className="bg-white text-primary hover:bg-white/90 shadow-lg"
+              className="bg-white border-2 border-primary/30 text-primary hover:bg-blue-50 shadow-xl"
             >
               <Plus className="mr-2 h-4 w-4" />
               New Patient

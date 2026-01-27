@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ArrowLeft, Loader2, CalendarIcon } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, User, CheckCircle2 } from 'lucide-react';
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Calendar } from "@/components/ui/calendar";
@@ -54,6 +54,7 @@ const formSchema = z.object({
 export function NewPatientPage() {
     const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [calendarOpen, setCalendarOpen] = useState(false);
     const { toast } = useToast();
 
     const form = useForm<z.infer<typeof formSchema>>({
@@ -75,17 +76,19 @@ export function NewPatientPage() {
         setIsSubmitting(true);
         try {
             const patientData = {
-                ...values,
-                allergies: values.allergies
-                    ? values.allergies.split(',').map((a) => a.trim()).filter(Boolean)
-                    : [],
+                firstName: values.firstName,
+                lastName: values.lastName,
+                dateOfBirth: values.dateOfBirth,
+                gender: values.gender,
                 email: values.email || undefined,
                 phone: values.phone || undefined,
                 address: values.address || undefined,
                 bloodType: values.bloodType || undefined,
+                allergies: values.allergies
+                    ? values.allergies.split(',').map((a) => a.trim()).filter(Boolean)
+                    : [],
             };
 
-            // @ts-ignore
             const newPatient = await patientService.createPatient(patientData);
             toast({
                 title: "Success",
@@ -93,11 +96,12 @@ export function NewPatientPage() {
                 variant: "success",
             });
             navigate(`/patients/${newPatient.id}`);
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const err = error as { message?: string };
             console.error('Create patient error:', error);
             toast({
                 title: "Error",
-                description: error.message || "Failed to create patient",
+                description: err.message || "Failed to create patient",
                 variant: "destructive"
             });
         } finally {
@@ -106,36 +110,48 @@ export function NewPatientPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" onClick={() => navigate('/patients')}>
-                    <ArrowLeft className="h-5 w-5" />
-                </Button>
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">New Patient</h1>
-                    <p className="text-muted-foreground">Register a new patient</p>
+        <div className="space-y-8 max-w-4xl mx-auto pb-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" onClick={() => navigate('/patients')} className="rounded-full hover:bg-primary/10 hover:text-primary">
+                        <ArrowLeft className="h-5 w-5" />
+                    </Button>
+                    <div className="space-y-1">
+                        <h1 className="text-3xl font-bold tracking-tight text-gradient">New Patient</h1>
+                        <p className="text-muted-foreground">Register a new patient to the system</p>
+                    </div>
                 </div>
             </div>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Patient Details</CardTitle>
-                    <CardDescription>
-                        Enter the personal information for the new patient.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
+            <div className="glass-card rounded-xl p-8 relative overflow-hidden group">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-cyan-400 opacity-50 group-hover:opacity-100 transition-opacity" />
+
+                <div className="flex items-center gap-3 mb-8">
+                    <div className="h-12 w-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-sm">
+                        <User className="h-6 w-6" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-semibold">Patient Details</h3>
+                        <p className="text-sm text-muted-foreground">Personal information</p>
+                    </div>
+                </div>
+
+                <CardContent className="p-0">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                            <div className="grid gap-6 md:grid-cols-2">
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                            <div className="grid gap-8 md:grid-cols-2">
                                 <FormField
                                     control={form.control}
                                     name="firstName"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>First Name</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">First Name</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="John" {...field} />
+                                                <Input
+                                                    placeholder="John"
+                                                    className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -146,9 +162,13 @@ export function NewPatientPage() {
                                     name="lastName"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Last Name</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Last Name</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Doe" {...field} />
+                                                <Input
+                                                    placeholder="Doe"
+                                                    className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -156,7 +176,7 @@ export function NewPatientPage() {
                                 />
                             </div>
 
-                            <div className="grid gap-6 md:grid-cols-2">
+                            <div className="grid gap-8 md:grid-cols-2">
                                 <FormField
                                     control={form.control}
                                     name="dateOfBirth"
@@ -167,14 +187,14 @@ export function NewPatientPage() {
 
                                         return (
                                             <FormItem className="flex flex-col">
-                                                <FormLabel>Date of Birth</FormLabel>
-                                                <Popover>
+                                                <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Date of Birth</FormLabel>
+                                                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                                                     <PopoverTrigger asChild>
                                                         <FormControl>
                                                             <Button
                                                                 variant={"outline"}
                                                                 className={cn(
-                                                                    "w-full pl-3 text-left font-normal h-10 rounded-xl border-input hover:bg-background/50",
+                                                                    "w-full pl-3 text-left h-12 text-lg rounded-xl border-2 border-input/60 hover:bg-background/50 hover:border-primary/50 transition-all bg-background/50 font-medium",
                                                                     !isValidDate && "text-muted-foreground"
                                                                 )}
                                                             >
@@ -191,7 +211,10 @@ export function NewPatientPage() {
                                                         <Calendar
                                                             mode="single"
                                                             selected={isValidDate ? dateValue : undefined}
-                                                            onSelect={(date) => field.onChange(date ? format(date, "yyyy-MM-dd") : "")}
+                                                            onSelect={(date) => {
+                                                                field.onChange(date ? format(date, "yyyy-MM-dd") : "");
+                                                                setCalendarOpen(false);
+                                                            }}
                                                             disabled={(date) =>
                                                                 date > new Date() || date < new Date("1900-01-01")
                                                             }
@@ -202,7 +225,14 @@ export function NewPatientPage() {
                                                             toYear={new Date().getFullYear()}
                                                             showOutsideDays={false}
                                                             classNames={{
-                                                                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                                                                head_row: "hidden",
+                                                                head_cell: "hidden",
+                                                                weekdays: "hidden",
+                                                                weekday: "hidden",
+                                                                day: "inline-flex items-center justify-center h-10 w-10 p-0 font-medium text-sm rounded-full transition-all duration-200 hover:bg-primary/10 hover:text-primary",
+                                                                day_button: "inline-flex items-center justify-center h-10 w-10 p-0 font-medium text-sm rounded-full transition-all duration-200 hover:bg-primary/10 hover:text-primary",
+                                                                day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-full shadow-md",
+                                                                selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground rounded-full shadow-md",
                                                                 caption_dropdowns: "flex justify-center gap-2",
                                                                 dropdown: "bg-background text-foreground border border-input rounded-md px-2 py-1 text-sm font-medium cursor-pointer hover:bg-accent hover:text-accent-foreground",
                                                                 vhidden: "hidden",
@@ -221,10 +251,10 @@ export function NewPatientPage() {
                                     name="gender"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Gender</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Gender</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
-                                                    <SelectTrigger>
+                                                    <SelectTrigger className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:ring-primary/20 rounded-xl font-medium">
                                                         <SelectValue placeholder="Select gender" />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -240,15 +270,20 @@ export function NewPatientPage() {
                                 />
                             </div>
 
-                            <div className="grid gap-6 md:grid-cols-2">
+                            <div className="grid gap-8 md:grid-cols-2">
                                 <FormField
                                     control={form.control}
                                     name="email"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Email</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Email</FormLabel>
                                             <FormControl>
-                                                <Input type="email" placeholder="john.doe@example.com" {...field} />
+                                                <Input
+                                                    type="email"
+                                                    placeholder="john.doe@example.com"
+                                                    className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -259,9 +294,13 @@ export function NewPatientPage() {
                                     name="phone"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Phone Number</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Phone Number</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="+1 234 567 890" {...field} />
+                                                <Input
+                                                    placeholder="+1 234 567 890"
+                                                    className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -269,16 +308,16 @@ export function NewPatientPage() {
                                 />
                             </div>
 
-                            <div className="grid gap-6 md:grid-cols-2">
+                            <div className="grid gap-8 md:grid-cols-2">
                                 <FormField
                                     control={form.control}
                                     name="bloodType"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Blood Type</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Blood Type</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
-                                                    <SelectTrigger>
+                                                    <SelectTrigger className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:ring-primary/20 rounded-xl font-medium">
                                                         <SelectValue placeholder="Select blood type" />
                                                     </SelectTrigger>
                                                 </FormControl>
@@ -302,9 +341,13 @@ export function NewPatientPage() {
                                     name="allergies"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Allergies</FormLabel>
+                                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Allergies</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Peanuts, Penicillin (comma separated)" {...field} />
+                                                <Input
+                                                    placeholder="Peanuts, Penicillin (comma separated)"
+                                                    className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
+                                                    {...field}
+                                                />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -317,33 +360,46 @@ export function NewPatientPage() {
                                 name="address"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Address</FormLabel>
+                                        <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Address</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="123 Main St, City, Country" {...field} />
+                                            <Input
+                                                placeholder="123 Main St, City, Country"
+                                                className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
+                                                {...field}
+                                            />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
 
-                            <div className="flex justify-end gap-4">
+                            <div className="flex justify-end gap-4 pt-4">
                                 <Button
                                     type="button"
                                     variant="outline"
                                     onClick={() => navigate('/patients')}
                                     disabled={isSubmitting}
+                                    className="h-11 px-6 rounded-lg border-2 border-input/30"
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting}>
-                                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="btn-premium h-11 px-8 rounded-lg shadow-lg shadow-primary/20"
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                                    )}
                                     Create Patient
                                 </Button>
                             </div>
                         </form>
                     </Form>
                 </CardContent>
-            </Card>
+            </div>
         </div>
     );
 }

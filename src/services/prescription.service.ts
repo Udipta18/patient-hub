@@ -20,6 +20,16 @@ interface BackendPrescription {
   updated_at: string;
 }
 
+// Backend API response wrapper
+interface ApiResponse<T> {
+  success?: boolean;
+  data: T;
+  message?: string;
+}
+
+type PrescriptionListResponse = BackendPrescription[] | ApiResponse<BackendPrescription[]>;
+type PrescriptionResponse = BackendPrescription | ApiResponse<BackendPrescription>;
+
 // Helper function to convert backend prescription to frontend format
 function mapBackendPrescription(backendPrescription: BackendPrescription): Prescription {
   return {
@@ -49,10 +59,12 @@ export const prescriptionService = {
     pageSize = 10
   ): Promise<PaginatedResponse<Prescription>> {
     try {
-      const response: any = await api.get<any>(
+      const response = await api.get<PrescriptionListResponse>(
         `/prescriptions/patient/${patientId}`
       );
-      const backendPrescriptions: BackendPrescription[] = Array.isArray(response) ? response : (response.data || []);
+      const backendPrescriptions: BackendPrescription[] = Array.isArray(response)
+        ? response
+        : ((response as ApiResponse<BackendPrescription[]>).data || []);
 
       // Map to frontend format
       const prescriptions = backendPrescriptions.map(mapBackendPrescription);
@@ -83,8 +95,10 @@ export const prescriptionService = {
   // Get single prescription
   async getPrescription(id: string): Promise<Prescription> {
     try {
-      const response: any = await api.get<any>(`/prescriptions/${id}`);
-      const backendPrescription = response.data || response;
+      const response = await api.get<PrescriptionResponse>(`/prescriptions/${id}`);
+      const backendPrescription = 'data' in response
+        ? (response as ApiResponse<BackendPrescription>).data
+        : response as BackendPrescription;
       return mapBackendPrescription(backendPrescription);
     } catch (error) {
       console.error('Failed to fetch prescription:', error);
@@ -114,20 +128,20 @@ export const prescriptionService = {
         prescribedDate: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
       };
 
-      const response: any = await api.post<any>(
+      const response = await api.post<ApiResponse<BackendPrescription>>(
         '/prescriptions',
         backendData
       );
 
-      const backendPrescription = response.data || response;
+      const backendPrescription = response.data;
 
       return mapBackendPrescription(backendPrescription);
-    } catch (error: any) {
-      console.error('Failed to create prescription:', error);
+    } catch (error: unknown) {
+      const axiosError = error as { response?: { data?: { message?: string; error?: string } }; message?: string };
 
-      const errorMessage = error.response?.data?.message ||
-        error.response?.data?.error ||
-        error.message ||
+      const errorMessage = axiosError.response?.data?.message ||
+        axiosError.response?.data?.error ||
+        axiosError.message ||
         'Failed to create prescription';
 
       throw new Error(errorMessage);
@@ -137,16 +151,20 @@ export const prescriptionService = {
   // Get all recent prescriptions (for dashboard)
   async getRecentPrescriptions(limit = 5): Promise<Prescription[]> {
     try {
-      // Backend doesn't have a recent prescriptions endpoint yet
-      // We'll get all prescriptions and sort/limit on frontend
-      // In production, you might want to add a dedicated endpoint for this
+      // Fetch prescriptions (assuming endpoint exists, or fallback gracefully)
+      const response = await api.get<PrescriptionListResponse>('/prescriptions');
+      const backendPrescriptions: BackendPrescription[] = Array.isArray(response)
+        ? response
+        : ((response as ApiResponse<BackendPrescription[]>).data || []);
 
-      // For now, we'll return an empty array since we don't have a way to get all prescriptions
-      // without a patient ID. You may need to add a new backend endpoint for this.
-      console.warn('getRecentPrescriptions: Backend endpoint not available, returning empty array');
-      return [];
+      const prescriptions = backendPrescriptions.map(mapBackendPrescription);
+
+      // Sort by date descending and take top N
+      return prescriptions
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, limit);
     } catch (error) {
-      console.error('Failed to fetch recent prescriptions:', error);
+      // Silent failure for dashboard widget
       return [];
     }
   },

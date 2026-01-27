@@ -4,12 +4,17 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Plus, Trash2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, Stethoscope, Pill, FileText, CheckCircle2, User, ChevronDown, CalendarIcon } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { prescriptionService } from '@/services/prescription.service';
 import { patientService } from '@/services/patient.service';
@@ -51,6 +56,7 @@ export function NewPrescriptionPage() {
     phone: '',
     email: '',
   });
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const { data: patient } = useQuery({
     queryKey: ['patient', patientId],
@@ -188,251 +194,340 @@ export function NewPrescriptionPage() {
   // Render New Patient Form
   if (!patientId) {
     return (
-      <div className="space-y-6 max-w-3xl mx-auto">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/patients')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">New Patient & Prescription</h1>
-            <p className="text-muted-foreground">Create a new patient and their prescription</p>
+      <div className="space-y-8 max-w-4xl mx-auto pb-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/patients')} className="rounded-full hover:bg-primary/10 hover:text-primary">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="space-y-1">
+              <h1 className="text-3xl font-bold tracking-tight text-gradient">New Patient & Prescription</h1>
+              <p className="text-muted-foreground">Register a new patient and create their first prescription</p>
+            </div>
           </div>
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             {/* Patient Details */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Patient Details</CardTitle>
-                <CardDescription>Enter the patient's personal information</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
+            <div className="glass-card rounded-xl p-6 relative overflow-hidden group">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-blue-500 to-cyan-400 opacity-50 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <User className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Patient Details</h3>
+                  <p className="text-sm text-muted-foreground">Personal information</p>
+                </div>
+              </div>
+
+              <div className="grid gap-6">
+                <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">First Name *</label>
+                    <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">First Name *</label>
                     <Input
                       placeholder="John"
                       value={newPatientData.firstName}
                       onChange={(e) => setNewPatientData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Last Name *</label>
+                    <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Last Name *</label>
                     <Input
                       placeholder="Doe"
                       value={newPatientData.lastName}
                       onChange={(e) => setNewPatientData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium"
                     />
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Date of Birth *</label>
-                    <Input
-                      type="date"
-                      value={newPatientData.dateOfBirth}
-                      onChange={(e) => setNewPatientData(prev => ({ ...prev, dateOfBirth: e.target.value }))}
-                    />
+                    <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Date of Birth *</label>
+                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "w-full pl-4 text-left h-12 text-lg rounded-xl border-2 border-input/60 bg-background/50 hover:bg-background/80 hover:border-primary/50 transition-all font-medium",
+                            !newPatientData.dateOfBirth && "text-muted-foreground"
+                          )}
+                        >
+                          {newPatientData.dateOfBirth ? (
+                            format(new Date(newPatientData.dateOfBirth), "PPP")
+                          ) : (
+                            <span>Select date of birth</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-5 w-5 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 rounded-xl shadow-xl border-border/50" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={newPatientData.dateOfBirth ? new Date(newPatientData.dateOfBirth) : undefined}
+                          onSelect={(date) => {
+                            setNewPatientData(prev => ({ ...prev, dateOfBirth: date ? format(date, "yyyy-MM-dd") : '' }));
+                            setCalendarOpen(false);
+                          }}
+                          disabled={(date) =>
+                            date > new Date() || date < new Date("1900-01-01")
+                          }
+                          initialFocus
+                          className="p-3"
+                          captionLayout="dropdown"
+                          fromYear={1900}
+                          toYear={new Date().getFullYear()}
+                          showOutsideDays={false}
+                          classNames={{
+                            head_row: "hidden",
+                            head_cell: "hidden",
+                            weekdays: "hidden",
+                            weekday: "hidden",
+                            day: "inline-flex items-center justify-center h-10 w-10 p-0 font-medium text-sm rounded-full transition-all duration-200 hover:bg-primary/10 hover:text-primary",
+                            day_button: "inline-flex items-center justify-center h-10 w-10 p-0 font-medium text-sm rounded-full transition-all duration-200 hover:bg-primary/10 hover:text-primary",
+                            day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground rounded-full shadow-md",
+                            selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground rounded-full shadow-md",
+                            caption_dropdowns: "flex justify-center gap-2",
+                            dropdown: "bg-background text-foreground border border-input rounded-md px-2 py-1 text-sm font-medium cursor-pointer hover:bg-accent hover:text-accent-foreground",
+                            vhidden: "hidden",
+                            caption_label: "hidden",
+                          }}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Gender</label>
-                    <select
-                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                      value={newPatientData.gender}
-                      onChange={(e) => setNewPatientData(prev => ({ ...prev, gender: e.target.value as 'male' | 'female' | 'other' }))}
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Gender</label>
+                    <div className="relative">
+                      <select
+                        className="w-full h-12 px-3 rounded-xl border-2 border-input/60 bg-background/50 text-lg focus:border-primary focus:ring-primary/20 transition-all appearance-none font-medium"
+                        value={newPatientData.gender}
+                        onChange={(e) => setNewPatientData(prev => ({ ...prev, gender: e.target.value as 'male' | 'female' | 'other' }))}
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-6 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Phone</label>
+                    <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Phone</label>
                     <Input
                       placeholder="+1 555-0123"
                       value={newPatientData.phone}
                       onChange={(e) => setNewPatientData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium placeholder:font-normal"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Email</label>
+                    <label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Email</label>
                     <Input
                       type="email"
                       placeholder="john@example.com"
                       value={newPatientData.email}
                       onChange={(e) => setNewPatientData(prev => ({ ...prev, email: e.target.value }))}
+                      className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium placeholder:font-normal"
                     />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Diagnosis */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Diagnosis</CardTitle>
-                <CardDescription>Enter the primary diagnosis for this prescription</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="diagnosis"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Diagnosis</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Upper Respiratory Infection" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+            <div className="glass-card rounded-xl p-6 relative overflow-hidden group">
+              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-accent opacity-50 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Stethoscope className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Diagnosis</h3>
+                  <p className="text-sm text-muted-foreground">Primary medical diagnosis</p>
+                </div>
+              </div>
+              <FormField
+                control={form.control}
+                name="diagnosis"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., Upper Respiratory Infection"
+                        className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium placeholder:font-normal"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Medications */}
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Medications</CardTitle>
-                  <CardDescription>Add one or more medications to this prescription</CardDescription>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+                    <Pill className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold">Medications</h3>
+                    <p className="text-sm text-muted-foreground">Prescribed drugs and dosage</p>
+                  </div>
                 </div>
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
                   onClick={() =>
                     append({ name: '', dosage: '', frequency: '', duration: '', instructions: '' })
                   }
+                  className="bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-primary/20 border transition-all"
                 >
                   <Plus className="mr-2 h-4 w-4" />
                   Add Medication
                 </Button>
-              </CardHeader>
-              <CardContent className="space-y-6">
+              </div>
+
+              <div className="space-y-4">
                 {fields.map((field, index) => (
-                  <div key={field.id} className="relative rounded-lg border p-4">
-                    {fields.length > 1 && (
+                  <div key={field.id} className="glass-card p-6 rounded-xl relative group animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
+                    {fields.length > 1 ? (
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="absolute right-2 top-2"
+                        className="absolute right-4 top-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                         onClick={() => remove(index)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    )}
+                    ) : null}
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.name`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Medication Name</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Amoxicillin" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.dosage`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Dosage</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 500mg" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.frequency`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Frequency</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Three times daily" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.duration`}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Duration</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 7 days" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`medications.${index}.instructions`}
-                        render={({ field }) => (
-                          <FormItem className="sm:col-span-2">
-                            <FormLabel>Special Instructions (optional)</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., Take with food" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                    <div className="grid gap-6 sm:grid-cols-12">
+                      <div className="sm:col-span-5">
+                        <FormField
+                          control={form.control}
+                          name={`medications.${index}.name`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Medication Name</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Amoxicillin" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <FormField
+                          control={form.control}
+                          name={`medications.${index}.dosage`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Dosage</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 500mg" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <FormField
+                          control={form.control}
+                          name={`medications.${index}.frequency`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Frequency</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., TID (3x daily)" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="sm:col-span-4">
+                        <FormField
+                          control={form.control}
+                          name={`medications.${index}.duration`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Duration</FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., 7 days" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <div className="sm:col-span-8">
+                        <FormField
+                          control={form.control}
+                          name={`medications.${index}.instructions`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Instructions <span className="text-muted-foreground/50 lowercase font-normal">(optional)</span></FormLabel>
+                              <FormControl>
+                                <Input placeholder="e.g., Take with food" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
 
             {/* Notes */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Additional Notes</CardTitle>
-                <CardDescription>Any additional instructions or notes for the patient</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FormField
-                  control={form.control}
-                  name="notes"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <Textarea
-                          placeholder="e.g., Rest and increase fluid intake. Follow up in one week if symptoms persist."
-                          rows={4}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+            <div className="glass-card rounded-xl p-6 relative overflow-hidden">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center text-muted-foreground">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Clinical Notes</h3>
+                  <p className="text-sm text-muted-foreground">Additional context or advice</p>
+                </div>
+              </div>
+              <FormField
+                control={form.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Add any relevant clinical notes, patient advice, or follow-up instructions..."
+                        rows={3}
+                        className="resize-none bg-background/50 border-2 border-input/60 focus:border-primary min-h-[100px] text-base"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Submit */}
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="outline" onClick={() => navigate('/patients')}>
+            <div className="flex justify-end gap-4 pt-4">
+              <Button type="button" variant="outline" onClick={() => navigate('/patients')} className="h-11 px-6">
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="btn-premium h-11 px-8 rounded-lg shadow-lg shadow-primary/20">
+                <CheckCircle2 className="mr-2 h-4 w-4" />
                 Preview Prescription
               </Button>
             </div>
@@ -444,180 +539,225 @@ export function NewPrescriptionPage() {
 
   // Render Existing Patient Form
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">New Prescription</h1>
-          {patient && (
-            <p className="text-muted-foreground">
-              For {patient.firstName} {patient.lastName} ({patient.uid})
-            </p>
-          )}
+    <div className="space-y-8 max-w-4xl mx-auto pb-10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="rounded-full hover:bg-primary/10 hover:text-primary">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight text-gradient">New Prescription</h1>
+            {patient ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Patient:</span>
+                <span className="font-medium text-foreground">{patient.firstName} {patient.lastName}</span>
+                <Badge variant="secondary" className="font-mono text-xs">{patient.uid}</Badge>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Diagnosis</CardTitle>
-              <CardDescription>Enter the primary diagnosis for this prescription</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FormField
-                control={form.control}
-                name="diagnosis"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Diagnosis</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Upper Respiratory Infection" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+          {/* Diagnosis Section */}
+          <div className="glass-card rounded-xl p-6 relative overflow-hidden group">
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-primary to-accent opacity-50 group-hover:opacity-100 transition-opacity" />
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                <Stethoscope className="h-5 w-5" />
+              </div>
               <div>
-                <CardTitle>Medications</CardTitle>
-                <CardDescription>Add one or more medications to this prescription</CardDescription>
+                <h3 className="text-lg font-semibold">Diagnosis</h3>
+                <p className="text-sm text-muted-foreground">Primary medical diagnosis</p>
+              </div>
+            </div>
+
+            <FormField
+              control={form.control}
+              name="diagnosis"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input
+                      placeholder="e.g., Acute Bronchitis"
+                      className="h-12 text-lg bg-background/50 border-2 border-input/60 focus:border-primary focus:ring-primary/20 transition-all font-medium placeholder:font-normal"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Medications Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center text-accent">
+                  <Pill className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">Medications</h3>
+                  <p className="text-sm text-muted-foreground">Prescribed drugs and dosage</p>
+                </div>
               </div>
               <Button
                 type="button"
-                variant="outline"
-                size="sm"
                 onClick={() =>
                   append({ name: '', dosage: '', frequency: '', duration: '', instructions: '' })
                 }
+                className="bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground border-primary/20 border transition-all"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Add Medication
               </Button>
-            </CardHeader>
-            <CardContent className="space-y-6">
+            </div>
+
+            <div className="space-y-4">
               {fields.map((field, index) => (
-                <div key={field.id} className="relative rounded-lg border p-4">
-                  {fields.length > 1 && (
+                <div key={field.id} className="glass-card p-6 rounded-xl relative group animate-slide-up" style={{ animationDelay: `${index * 100}ms` }}>
+                  {fields.length > 1 ? (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-2 top-2"
+                      className="absolute right-4 top-4 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                       onClick={() => remove(index)}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
+                  ) : null}
 
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name={`medications.${index}.name`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Medication Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Amoxicillin" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`medications.${index}.dosage`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Dosage</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., 500mg" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`medications.${index}.frequency`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Frequency</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Three times daily" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`medications.${index}.duration`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Duration</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., 7 days" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name={`medications.${index}.instructions`}
-                      render={({ field }) => (
-                        <FormItem className="sm:col-span-2">
-                          <FormLabel>Special Instructions (optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Take with food" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <div className="grid gap-6 sm:grid-cols-12">
+                    {/* Medication Name - Wider */}
+                    <div className="sm:col-span-5">
+                      <FormField
+                        control={form.control}
+                        name={`medications.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Medication Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Amoxicillin" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Dosage */}
+                    <div className="sm:col-span-3">
+                      <FormField
+                        control={form.control}
+                        name={`medications.${index}.dosage`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Dosage</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., 500mg" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Frequency */}
+                    <div className="sm:col-span-4">
+                      <FormField
+                        control={form.control}
+                        name={`medications.${index}.frequency`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Frequency</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., TID (3x daily)" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Duration */}
+                    <div className="sm:col-span-4">
+                      <FormField
+                        control={form.control}
+                        name={`medications.${index}.duration`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Duration</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., 7 days" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Instructions */}
+                    <div className="sm:col-span-8">
+                      <FormField
+                        control={form.control}
+                        name={`medications.${index}.instructions`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Instructions <span className="text-muted-foreground/50 lowercase font-normal">(optional)</span></FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., Take with food" className="bg-background/50 border-2 border-input/60 focus:border-primary" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Additional Notes</CardTitle>
-              <CardDescription>Any additional instructions or notes for the patient</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <FormField
-                control={form.control}
-                name="notes"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        placeholder="e.g., Rest and increase fluid intake. Follow up in one week if symptoms persist."
-                        rows={4}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+          {/* Notes Section */}
+          <div className="glass-card rounded-xl p-6 relative overflow-hidden">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-lg bg-secondary/50 flex items-center justify-center text-muted-foreground">
+                <FileText className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Clinical Notes</h3>
+                <p className="text-sm text-muted-foreground">Additional context or advice</p>
+              </div>
+            </div>
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Add any relevant clinical notes, patient advice, or follow-up instructions..."
+                      rows={3}
+                      className="resize-none bg-background/50 border-2 border-input/60 focus:border-primary min-h-[100px] text-base"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => navigate(-1)}>
+          <div className="flex justify-end gap-4 pt-4">
+            <Button type="button" variant="outline" onClick={() => navigate(-1)} className="h-11 px-6">
               Cancel
             </Button>
-            <Button type="submit">
+            <Button type="submit" className="btn-premium h-11 px-8 rounded-lg shadow-lg shadow-primary/20">
+              <CheckCircle2 className="mr-2 h-4 w-4" />
               Preview Prescription
             </Button>
           </div>
