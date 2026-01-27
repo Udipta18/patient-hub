@@ -9,6 +9,7 @@ import { NewPatientPage } from '@/pages/patients/NewPatientPage';
 import { PatientDetailPage } from '@/pages/patients/PatientDetailPage';
 import { PrescriptionsListPage } from '@/pages/prescriptions/PrescriptionsListPage';
 import { NewPrescriptionPage } from '@/pages/prescriptions/NewPrescriptionPage';
+import { SettingsPage } from '@/pages/settings/SettingsPage';
 import NotFound from '@/pages/NotFound';
 
 
@@ -32,6 +33,7 @@ export function AppRouter() {
             <Route path="/patients/:id" element={<PatientDetailPage />} />
             <Route path="/prescriptions" element={<PrescriptionsListPage />} />
             <Route path="/prescriptions/new" element={<NewPrescriptionPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
