@@ -88,11 +88,23 @@ export function EditPatientDialog({ patient }: EditPatientDialogProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patient', patient.id] });
-      toast.success('Patient details updated successfully');
+      toast.success('Patient details updated successfully', {
+        style: {
+          background: '#10B981',
+          color: 'white',
+          border: 'none',
+        },
+      });
       setOpen(false);
     },
     onError: (error: Error) => {
-      toast.error(error.message || 'Failed to update patient details');
+      toast.error(error.message || 'Failed to update patient details', {
+        style: {
+          background: '#EF4444',
+          color: 'white',
+          border: 'none',
+        },
+      });
     },
   });
 
