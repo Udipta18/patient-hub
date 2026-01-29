@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -18,14 +22,73 @@ export function PatientListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [genderFilter, setGenderFilter] = useState<string[]>([]);
+  const [bloodTypeFilter, setBloodTypeFilter] = useState<string[]>([]);
 
   const page = Number(searchParams.get('page')) || 1;
   const search = searchParams.get('search') || '';
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['patients', page, search],
-    queryFn: () => patientService.getPatients(page, 10, search),
+  const { data: allPatients, isLoading } = useQuery({
+    // Use a stable key so we only fetch once/cache effectively
+    queryKey: ['patients', 'all'],
+    queryFn: () => patientService.getAllPatients(),
   });
+
+  const data = useMemo(() => {
+    if (!allPatients) return undefined;
+
+    let filtered = [...allPatients];
+
+    // 1. Search
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(
+        (p) =>
+          p.firstName.toLowerCase().includes(searchLower) ||
+          p.lastName.toLowerCase().includes(searchLower) ||
+          p.uid.toLowerCase().includes(searchLower) ||
+          p.email?.toLowerCase().includes(searchLower) ||
+          p.phone?.includes(search)
+      );
+    }
+
+    // 2. Gender Filter
+    if (genderFilter.length > 0) {
+      filtered = filtered.filter((p) =>
+        genderFilter.includes(p.gender.toLowerCase())
+      );
+    }
+
+    // 3. Blood Type Filter
+    if (bloodTypeFilter.length > 0) {
+      filtered = filtered.filter((p) =>
+        p.bloodType && bloodTypeFilter.includes(p.bloodType)
+      );
+    }
+
+    // 4. Sorting
+    filtered.sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      if (sortOrder === 'asc') return nameA.localeCompare(nameB);
+      return nameB.localeCompare(nameA);
+    });
+
+    // 5. Pagination
+    const pageSize = 10;
+    const totalPages = Math.ceil(filtered.length / pageSize);
+    const paginatedData = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    return {
+      data: paginatedData,
+      total: filtered.length,
+      page,
+      pageSize,
+      totalPages,
+    };
+  }, [allPatients, search, sortOrder, genderFilter, bloodTypeFilter, page]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,12 +155,74 @@ export function PatientListPage() {
             </form>
 
             <div className="flex gap-2">
-              <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
-                <Filter className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
-                <SortAsc className="h-4 w-4" />
-              </Button>
+              {/* Filter Dialog */}
+              <Dialog open={filterDialogOpen} onOpenChange={setFilterDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
+                    <Filter className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <div className="space-y-6">
+                    <h2 className="text-xl font-bold mb-2">Advanced Filters</h2>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Gender</label>
+                        <div className="flex gap-4">
+                          {['male', 'female', 'other'].map(g => (
+                            <label key={g} className="flex items-center gap-2">
+                              <Checkbox checked={genderFilter.includes(g)} onCheckedChange={v => {
+                                setGenderFilter(v ? [...genderFilter, g] : genderFilter.filter(x => x !== g));
+                              }} />
+                              <span className="capitalize">{g}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1">Blood Type</label>
+                        <div className="flex gap-2 flex-wrap">
+                          {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(b => (
+                            <label key={b} className="flex items-center gap-2">
+                              <Checkbox checked={bloodTypeFilter.includes(b)} onCheckedChange={v => {
+                                setBloodTypeFilter(v ? [...bloodTypeFilter, b] : bloodTypeFilter.filter(x => x !== b));
+                              }} />
+                              <span>{b}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button variant="outline" onClick={() => { setGenderFilter([]); setBloodTypeFilter([]); }}>Clear</Button>
+                      <Button onClick={() => setFilterDialogOpen(false)}>Apply</Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              {/* Sort Popover */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl">
+                    <SortAsc className="h-4 w-4" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium mb-1">Sort by</label>
+                    <Select value={sortOrder} onValueChange={v => setSortOrder(v as 'asc' | 'desc')}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sort order" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="asc">Name (A-Z)</SelectItem>
+                        <SelectItem value="desc">Name (Z-A)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              {/* View Mode Buttons */}
               <div className="flex rounded-xl border overflow-hidden">
                 <Button
                   variant={viewMode === 'table' ? 'secondary' : 'ghost'}

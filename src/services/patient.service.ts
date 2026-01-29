@@ -107,43 +107,72 @@ export const patientService = {
   async getPatients(
     page = 1,
     pageSize = 10,
-    search?: string
+    search?: string,
+    sortOrder: 'asc' | 'desc' = 'asc',
+    genderFilter: string[] = [],
+    bloodTypeFilter: string[] = []
   ): Promise<PaginatedResponse<Patient>> {
+    const patients = await this.getAllPatients();
+
+    // 1. Search Filter
+    let filtered = patients;
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = patients.filter(
+        (p) =>
+          p.firstName.toLowerCase().includes(searchLower) ||
+          p.lastName.toLowerCase().includes(searchLower) ||
+          p.uid.toLowerCase().includes(searchLower) ||
+          p.email?.toLowerCase().includes(searchLower) ||
+          p.phone?.includes(search)
+      );
+    }
+
+    // 2. Gender Filter
+    if (genderFilter.length > 0) {
+      filtered = filtered.filter((p) =>
+        genderFilter.includes(p.gender.toLowerCase())
+      );
+    }
+
+    // 3. Blood Type Filter
+    if (bloodTypeFilter.length > 0) {
+      filtered = filtered.filter((p) =>
+        p.bloodType && bloodTypeFilter.includes(p.bloodType)
+      );
+    }
+
+    // 4. Sorting
+    filtered.sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
+      const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+      if (sortOrder === 'asc') return nameA.localeCompare(nameB);
+      return nameB.localeCompare(nameA);
+    });
+
+    // 5. Pagination
+    const paginatedData = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+    return {
+      data: paginatedData,
+      total: filtered.length,
+      page,
+      pageSize,
+      totalPages: Math.ceil(filtered.length / pageSize),
+    };
+  },
+
+  // Get all patients (Raw fetch)
+  async getAllPatients(): Promise<Patient[]> {
     try {
       const response = await api.get<PatientListResponse>('/patients');
-      // Handle if backend returns { data: [...] } or just [...]
       const backendPatients: BackendPatient[] = Array.isArray(response)
         ? response
         : ((response as ApiResponse<BackendPatient[]>).data || []);
 
-      // Apply search filter on frontend (backend doesn't support search yet)
-      let filtered = backendPatients;
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filtered = backendPatients.filter(
-          (p) =>
-            p.first_name.toLowerCase().includes(searchLower) ||
-            p.last_name.toLowerCase().includes(searchLower) ||
-            p.patient_uid.toLowerCase().includes(searchLower) ||
-            p.email?.toLowerCase().includes(searchLower)
-        );
-      }
-
-      // Map to frontend format
-      const patients = filtered.map(mapBackendPatient);
-
-      // Apply pagination on frontend
-      const paginatedData = patients.slice((page - 1) * pageSize, page * pageSize);
-
-      return {
-        data: paginatedData,
-        total: patients.length,
-        page,
-        pageSize,
-        totalPages: Math.ceil(patients.length / pageSize),
-      };
+      return backendPatients.map(mapBackendPatient);
     } catch (error) {
-      console.error('Failed to fetch patients:', error);
+      console.error('Failed to fetch all patients:', error);
       throw new Error('Failed to fetch patients');
     }
   },
@@ -195,6 +224,48 @@ export const patientService = {
       }
 
       throw new Error(errorMessage);
+    }
+  },
+
+  // Update existing patient
+  async updatePatient(id: string, data: Partial<Patient>): Promise<Patient> {
+    try {
+      // Backend expects camelCase in request body per API docs
+      const backendData: Record<string, unknown> = {};
+
+      if (data.firstName !== undefined) backendData.firstName = data.firstName;
+      if (data.lastName !== undefined) backendData.lastName = data.lastName;
+      if (data.email !== undefined) backendData.email = data.email;
+      if (data.phone !== undefined) backendData.phone = data.phone;
+      if (data.dateOfBirth !== undefined) backendData.dateOfBirth = data.dateOfBirth;
+      if (data.gender !== undefined) backendData.gender = data.gender;
+      if (data.address !== undefined) backendData.address = data.address;
+      if (data.bloodType !== undefined) backendData.bloodType = data.bloodType;
+      if (data.allergies !== undefined) backendData.allergies = data.allergies;
+
+      // Filter out empty strings but keep arrays (even empty ones)
+      const cleanData = Object.fromEntries(
+        Object.entries(backendData).filter(([_, v]) => {
+          if (Array.isArray(v)) return true; // Keep arrays
+          return v !== undefined && v !== null && v !== '';
+        })
+      );
+
+      console.log('Updating patient with data:', cleanData); // Debug log
+
+      const response = await api.patch<ApiResponse<BackendPatient>>(`/patients/${id}`, cleanData);
+
+      const backendPatient = 'data' in response
+        ? (response as ApiResponse<BackendPatient>).data
+        : response as BackendPatient;
+
+      return mapBackendPatient(backendPatient);
+    } catch (error: unknown) {
+      console.error('Failed to update patient:', error);
+      const axiosError = error as { response?: { data?: { message?: string | string[] } } };
+      const message = axiosError.response?.data?.message;
+      const errorMsg = Array.isArray(message) ? message.join(', ') : message || 'Failed to update patient details';
+      throw new Error(errorMsg);
     }
   },
 

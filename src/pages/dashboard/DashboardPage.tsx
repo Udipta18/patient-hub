@@ -141,13 +141,15 @@ export function DashboardPage() {
             className={`stat-card bg-gradient-to-br ${stat.bgGradient} border-0 animate-slide-up`}
             style={{ animationDelay: `${index * 100}ms` }}
           >
-            <CardContent className="flex items-center gap-4 p-6">
-              <div className={`rounded-xl bg-gradient-to-br ${stat.gradient} p-3 shadow-lg`}>
-                <stat.icon className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{stat.name}</p>
-                <p className="text-3xl font-bold">{stat.value}</p>
+            <CardContent className="px-4 py-6">
+              <div className="flex items-center gap-3">
+                <div className={`rounded-xl bg-gradient-to-br ${stat.gradient} p-3 shadow-lg shrink-0`}>
+                  <stat.icon className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-muted-foreground leading-tight">{stat.name}</p>
+                  <p className="text-3xl font-bold tracking-tight">{stat.value}</p>
+                </div>
               </div>
             </CardContent>
           </Card>

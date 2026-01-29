@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   ArrowLeft, Calendar, Phone, Mail, Droplets, AlertTriangle,
-  MapPin, Clock, FileText, Activity, Shield, Sparkles, Edit
+  MapPin, Clock, FileText, Activity, Shield, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { prescriptionService } from '@/services/prescription.service';
 import { PatientTimeline } from '@/components/timeline/PatientTimeline';
 import { PatientMindMap } from '@/components/mindmap/PatientMindMap';
 import { PrescriptionList } from '@/components/common/PrescriptionList';
+import { EditPatientDialog } from '@/components/patients/EditPatientDialog';
 
 export function PatientDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -144,10 +145,7 @@ export function PatientDetailPage() {
           </div>
 
           <div className="pb-4 flex gap-3">
-            <Button variant="outline" className="rounded-xl border-primary/20 hover:bg-primary/5 hover:border-primary/50 text-primary transition-all">
-              <Edit className="mr-2 h-4 w-4" />
-              Edit Details
-            </Button>
+            <EditPatientDialog patient={patient} />
             <Button onClick={() => navigate(`/prescriptions/new?patientId=${patient.id}`)} className="rounded-xl bg-gradient-primary hover:opacity-90 transition-opacity shadow-lg">
               <FileText className="mr-2 h-4 w-4" />
               New Prescription

@@ -192,7 +192,6 @@ export function PatientMindMap({ patientId }: PatientMindMapProps) {
           width: 250,
           fontWeight: 'bold',
           // Visual feedback if selected
-          ring: isBranchHighlighted ? '2px solid hsl(var(--primary))' : 'none',
           boxShadow: isBranchHighlighted ? '0 0 0 2px hsl(var(--primary))' : 'none',
         },
         sourcePosition: Position.Right,
@@ -213,19 +212,32 @@ export function PatientMindMap({ patientId }: PatientMindMapProps) {
 
     // Alerts (Left side)
     data.alerts.forEach((a, i) => {
+      const alertNodeId = `alert-${a.id}`;
+      const isHighlighted = highlightedNodeId === alertNodeId;
+
       nodesList.push({
-        id: `alert-${a.id}`,
+        id: alertNodeId,
         position: { x: -300, y: i * 100 },
         data: { label: `⚠️ ${a.message}` },
-        style: { background: 'hsl(var(--destructive))', color: 'white', borderRadius: 8, border: 'none' },
+        style: {
+          background: 'hsl(var(--destructive))',
+          color: 'white',
+          borderRadius: 8,
+          border: 'none',
+          boxShadow: isHighlighted ? '0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--destructive))' : 'none',
+        },
         sourcePosition: Position.Right,
       });
       edgesList.push({
         id: `e-a-${a.id}`,
-        source: `alert-${a.id}`,
+        source: alertNodeId,
         target: 'patient',
         animated: true,
-        style: getSimpleEdgeStyle(false, 'hsl(var(--destructive))')
+        style: {
+          stroke: 'hsl(var(--destructive))',
+          strokeWidth: isHighlighted ? 3 : 1.5,
+          opacity: 1,
+        }
       });
     });
 
