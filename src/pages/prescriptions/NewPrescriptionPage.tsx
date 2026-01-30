@@ -19,8 +19,8 @@ import { prescriptionService } from '@/services/prescription.service';
 import { patientService } from '@/services/patient.service';
 import { PrescriptionPreview } from '@/components/prescriptions/PrescriptionPreview';
 import { MedicineRow, AutofillHint, MedicineRowSkeleton } from '@/components/prescriptions/MedicineRow';
-import { DiagnosisAutocomplete } from '@/components/prescriptions/DiagnosisAutocomplete';
-import { useDiagnosisMedicines } from '@/hooks/use-diagnosis-medicines';
+import { MultiDiagnosisAutocomplete } from '@/components/prescriptions/MultiDiagnosisAutocomplete';
+import { useMultipleDiagnosisMedicines } from '@/hooks/use-multiple-diagnosis-medicines';
 import type { Diagnosis } from '@/types/diagnosis';
 
 const medicationSchema = z.object({
@@ -76,19 +76,20 @@ export function NewPrescriptionPage() {
     },
   });
 
-  // Selected diagnosis state - stores the full diagnosis object with ID
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<Diagnosis | null>(null);
+  // Selected diagnoses state - stores array of full diagnosis objects with IDs
+  const [selectedDiagnoses, setSelectedDiagnoses] = useState<Diagnosis[]>([]);
 
-  // Handle diagnosis selection from autocomplete
-  const handleDiagnosisSelect = useCallback((diagnosis: Diagnosis) => {
-    setSelectedDiagnosis(diagnosis);
+  // Handle diagnoses change from autocomplete
+  const handleDiagnosesChange = useCallback((diagnoses: Diagnosis[]) => {
+    setSelectedDiagnoses(diagnoses);
   }, []);
 
-  // Fetch medicines for the selected diagnosis (using UUID, not text)
+  // Fetch medicines for all selected diagnoses (using UUIDs)
+  const diagnosisIds = selectedDiagnoses.map(d => d.id);
   const {
     data: diagnosisMedicines = [],
     isLoading: isLoadingMedicines
-  } = useDiagnosisMedicines(selectedDiagnosis?.id);
+  } = useMultipleDiagnosisMedicines(diagnosisIds);
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -358,10 +359,10 @@ export function NewPrescriptionPage() {
             </div>
 
             {/* Diagnosis */}
-            <DiagnosisAutocomplete
+            <MultiDiagnosisAutocomplete
               form={form}
-              onDiagnosisSelect={handleDiagnosisSelect}
-              selectedDiagnosis={selectedDiagnosis}
+              onDiagnosesChange={handleDiagnosesChange}
+              selectedDiagnoses={selectedDiagnoses}
             />
 
             {/* Medications */}
@@ -482,10 +483,10 @@ export function NewPrescriptionPage() {
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
 
           {/* Diagnosis Section */}
-          <DiagnosisAutocomplete
+          <MultiDiagnosisAutocomplete
             form={form}
-            onDiagnosisSelect={handleDiagnosisSelect}
-            selectedDiagnosis={selectedDiagnosis}
+            onDiagnosesChange={handleDiagnosesChange}
+            selectedDiagnoses={selectedDiagnoses}
           />
 
           {/* Medications Section */}
